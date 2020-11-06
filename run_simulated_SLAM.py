@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from scipy.io import loadmat
 import numpy as np
-
+import scipy
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import animation
@@ -94,15 +94,17 @@ poseGT = simSLAM_ws["poseGT"].T
 
 K = len(z)
 M = len(landmarks)
+# print(len(poseGT))
+#K = 100 # For å ikke kjøre hele datasettet, siden det tar evig lang tid rip
 
-# %% Initilize
-Q = np.eye(3) # TODO
-R = np.eye(2) # TODO
+# %% Initialize
+Q = np.diag([0.2425, 0.2403, 0.0172]) # TODO
+R = np.diag([5e-2, 5e-2]) # TODO
 
 doAsso = True
 
 JCBBalphas = np.array(
-    [1, 1]# TODO,
+    [5e-2, 5e-1]# TODO,
 )  # first is for joint compatibility, second is individual
 # these can have a large effect on runtime either through the number of landmarks created
 # or by the size of the association search space.
@@ -132,7 +134,7 @@ P_pred[0] = np.zeros((3, 3))  # we also say that we are 100% sure about that
 # plotting
 
 doAssoPlot = False
-playMovie = True
+playMovie = False
 if doAssoPlot:
     figAsso, axAsso = plt.subplots(num=1, clear=True)
 
@@ -140,9 +142,7 @@ if doAssoPlot:
 N = K
 
 print("starting sim (" + str(N) + " iterations)")
-print(K)
 for k, z_k in tqdm(enumerate(z[:N])):
-    #print(k)
     eta_hat[k], P_hat[k], NIS[k], a[k] = slam.update(eta_pred[k], P_pred[k], z_k) # TODO update
 
     if k < K - 1:
@@ -154,7 +154,7 @@ for k, z_k in tqdm(enumerate(z[:N])):
 
     num_asso = np.count_nonzero(a[k] > -1)
 
-    CI[k] = chi2.interval(alpha, 2 * num_asso)
+    CI[k] = chi2.interval(1 - alpha, 2 * num_asso)
 
     if num_asso > 0:
         NISnorm[k] = NIS[k] / (2 * num_asso)
@@ -162,8 +162,8 @@ for k, z_k in tqdm(enumerate(z[:N])):
     else:
         NISnorm[k] = 1
         CInorm[k].fill(1)
-    
-    NEESes[k] = slam.NEESes(eta_hat[k][:3], P_hat[k][:3,:3], poseGT[k]) # TODO, use provided function slam.NEESes
+    # pose[k+1]?
+    NEESes[k] = slam.NEESes(eta_hat[k][:3], P_hat[k][:3,:3], poseGT[k], k) # TODO, use provided function slam.NEESes
 
     if doAssoPlot and k > 0:
         axAsso.clear()
@@ -182,7 +182,8 @@ for k, z_k in tqdm(enumerate(z[:N])):
 
 
 print("sim complete")
-
+#print(eta_hat)
+#print(eta_hat.shape)
 pose_est = np.array([x[:3] for x in eta_hat[:N]])
 lmk_est = [eta_hat_k[3:].reshape(-1, 2) for eta_hat_k in eta_hat]
 lmk_est_final = lmk_est[N - 1]
@@ -227,7 +228,7 @@ ax3.plot(CInorm[:N,0], '--')
 ax3.plot(CInorm[:N,1], '--')
 ax3.plot(NISnorm[:N], lw=0.5)
 
-ax3.set_title(f'NIS, {insideCI.mean()*100}% inside CI')
+ax3.set_title(f'NIS, {insideCI.mean()*100}% inside 95% CI')
 
 # NEES
 
@@ -236,16 +237,16 @@ tags = ['all', 'pos', 'heading']
 dfs = [3, 2, 1]
 
 for ax, tag, NEES, df in zip(ax4, tags, NEESes.T, dfs):
-    CI_NEES = chi2.interval(alpha, df)
+    CI_NEES = chi2.interval(1-alpha, df)
     ax.plot(np.full(N, CI_NEES[0]), '--')
     ax.plot(np.full(N, CI_NEES[1]), '--')
     ax.plot(NEES[:N], lw=0.5)
     insideCI = (CI_NEES[0] <= NEES) * (NEES <= CI_NEES[1])
-    ax.set_title(f'NEES {tag}: {insideCI.mean()*100}% inside CI')
-
+    ax.set_title(f'NEES {tag}: {insideCI.mean()*100}% inside 95% CI')
     CI_ANEES = np.array(chi2.interval(alpha, df*N)) / N
     print(f"CI ANEES {tag}: {CI_ANEES}")
     print(f"ANEES {tag}: {NEES.mean()}")
+
 
 fig4.tight_layout()
 

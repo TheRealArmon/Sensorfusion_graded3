@@ -52,7 +52,7 @@ class EKFSLAM:
         v_k = u[1]
         phi_k = u[2]
 
-        xpred = np.array([x_k + u_k*np.cos(psi_k) - v_k*np.sin(psi_k),
+        xpred = np.array([x_k + u_k*np.cos(psi_k) - v_k*np.sin(psi_k), #Hvorfor minus sin? pga Heading?
                  y_k + u_k*np.sin(psi_k) + v_k*np.cos(psi_k),
                  utils.wrapToPi(psi_k + phi_k)]) # TODO, eq (11.7). Should wrap heading angle between (-pi, pi), see utils.wrapToPi
 
@@ -142,7 +142,7 @@ class EKFSLAM:
         x = eta[:3]
         u = z_odo
         etapred[:3] = self.f(x, u) # TODO robot state prediction
-        etapred[3:] = eta[3:] #Riktig? # TODO landmarks: no effect
+        etapred[3:] = eta[3:] # TODO landmarks: no effect
 
         Fx = self.Fx(x, u) # TODO
         Fu = self.Fu(x, u) # TODO
@@ -201,7 +201,7 @@ class EKFSLAM:
         # [ranges; 
         #  bearings]
         # into shape (2, #lmrk)
-        #print(zpred.shape)
+        
         zpred = zpred.T.ravel() # stack measurements along one dimension, [range1 bearing1 range2 bearing2 ...]
 
         assert (
@@ -233,13 +233,13 @@ class EKFSLAM:
 
         delta_m = (m.T - x[:2] - Rot @ self.sensor_offset).T # TODO, relative position of landmark to robot in world frame. m - rho that appears in (11.15) and (11.16)
 
-        zc = delta_m #? # TODO, (2, #measurements), each measured position in cartesian coordinates like
+        zc = delta_m # TODO, (2, #measurements), each measured position in cartesian coordinates like
         # [x coordinates;
         #  y coordinates]
 
         zpred = self.h(eta) # TODO (2, #measurements), predicted measurements, like
         # [ranges;
-        #  bearings] # No its not like this
+        #  bearings] # No its not like this, ref self.h
         
         zr = zpred[0::2] # TODO, ranges
 
@@ -255,6 +255,8 @@ class EKFSLAM:
         Hx = H[:, :3]  # slice view, setting elements of Hx will set H as well
         Hm = H[:, 3:]  # slice view, setting elements of Hm will set H as well
 
+        # TODO Hvordan bruke jac_z_cb? Og hva med det som står i oppgaven?
+
         # proposed way is to go through landmarks one by one
         jac_z_cb = -np.eye(2, 3)  # preallocate and update this for some speed gain if looping
         for i in range(numM):  # But this whole loop can be vectorized
@@ -263,7 +265,7 @@ class EKFSLAM:
 
             # TODO: Set H or Hx and Hm here
             Hx[inds] = -np.concatenate((np.array([delta_m[:, i].T / zr[i], delta_m[:, i].T @ Rpihalf / zr[i]**2]), np.array([[0, 1]]).T), axis=1)
-            Hm[inds, inds] = 1/zr[i]**2 * np.concatenate((np.array([zr[i]*delta_m[:, i].T]), np.array([delta_m[:, i].T @ Rpihalf])), axis=0) #orig: Hm[inds, inds+2]
+            Hm[inds, inds] = 1/zr[i]**2 * np.concatenate((np.array([zr[i]*delta_m[:, i].T]), np.array([delta_m[:, i].T @ Rpihalf])), axis=0)
 
         # TODO: You can set some assertions here to make sure that some of the structure in H is correct
         return H
@@ -418,12 +420,12 @@ class EKFSLAM:
             # Prediction and innovation covariance
             zpred = self.h(eta) #TODO
             H = self.H(eta) # TODO
-            #print(H.shape)
+            
             # Here you can use simply np.kron (a bit slow) to form the big (very big in VP after a while) R,
             # or be smart with indexing and broadcasting (3d indexing into 2d mat) realizing you are adding the same R on all diagonals
             R_shit = np.diag((np.array([[self.R[0,0], self.R[1,1]] for r in range(numLmk)]).reshape(2*numLmk)))
             S = H @ P @ H.T + R_shit
-            #S = H @ P @ H.T + np.kron(np.eye(numLmk), self.R) # TODO #Funker +R ? 
+            #S = H @ P @ H.T + np.kron(np.eye(numLmk), self.R) # TODO 
 
             assert (
                 S.shape == zpred.shape * 2
@@ -432,7 +434,7 @@ class EKFSLAM:
 
             # Perform data association
             za, zpred, Ha, Sa, a = self.associate(z, zpred, H, S)
-
+            
             # No association could be made, so skip update
             if za.shape[0] == 0:
                 etaupd = eta # TODO # Usikker på disse to. Bruke predict?
@@ -446,7 +448,8 @@ class EKFSLAM:
 
                 # Kalman mean update
                 # S_cho_factors = la.cho_factor(Sa) # Optional, used in places for S^-1, see scipy.linalg.cho_factor and scipy.linalg.cho_solve
-                W = P @ H.T @ la.inv(Sa) #Sa? # TODO, Kalman gain, can use S_cho_factors
+                
+                W = P @ Ha.T @ la.inv(Sa) #Sa? # TODO, Kalman gain, can use S_cho_factors
                 etaupd = eta + W @ v # TODO, Kalman update
 
                 # Kalman cov update: use Joseph form for stability
@@ -486,7 +489,7 @@ class EKFSLAM:
         return etaupd, Pupd, NIS, a
 
     @classmethod
-    def NEESes(cls, x: np.ndarray, P: np.ndarray, x_gt: np.ndarray,) -> np.ndarray:
+    def NEESes(cls, x: np.ndarray, P: np.ndarray, x_gt: np.ndarray, k,) -> np.ndarray:
         """Calculates the total NEES and the NEES for the substates
         Args:
             x (np.ndarray): The estimate
@@ -497,6 +500,7 @@ class EKFSLAM:
         Returns:
             np.ndarray: NEES for [all, position, heading], shape (3,)
         """
+        
 
         assert x.shape == (3,), f"EKFSLAM.NEES: x shape incorrect {x.shape}"
         assert P.shape == (3, 3), f"EKFSLAM.NEES: P shape incorrect {P.shape}"
@@ -526,6 +530,14 @@ class EKFSLAM:
 
         NEESes = np.array([NEES_all, NEES_pos, NEES_heading])
         NEESes[np.isnan(NEESes)] = 1.0  # We may divide by zero, # TODO: beware
+
+        if k >= 998:
+            print()
+            print("___________")
+            print(x - x_gt)
+            print(np.round(la.inv(P), 2))
+            print(NEESes)
+            print("____________")
 
         assert np.all(NEESes >= 0), "ESKF.NEES: one or more negative NEESes"
         return NEESes

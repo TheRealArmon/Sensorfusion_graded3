@@ -152,6 +152,8 @@ class EKFSLAM:
         # cov matrix layout:
         # [[P_xx, P_xm],
         # [P_mx, P_mm]]
+
+        # TODO np.copy()? Inplace er fucked?
         
         P[:3, :3] = Fx @ P[:3, :3] @ Fx.T + Fu @ self.Q @ Fu.T # TODO robot cov prediction
         P[:3, 3:] = Fx @ P[:3, 3:] # TODO robot-map covariance prediction
@@ -531,13 +533,13 @@ class EKFSLAM:
         NEESes = np.array([NEES_all, NEES_pos, NEES_heading])
         NEESes[np.isnan(NEESes)] = 1.0  # We may divide by zero, # TODO: beware
 
-        if k >= 998:
-            print()
-            print("___________")
-            print(x - x_gt)
-            print(np.round(la.inv(P), 2))
-            print(NEESes)
-            print("____________")
+        # if k >= 998:
+        #     print()
+        #     print("___________")
+        #     print(x - x_gt)
+        #     print(np.round(la.inv(P), 2))
+        #     print(NEESes)
+        #     print("____________")
 
         assert np.all(NEESes >= 0), "ESKF.NEES: one or more negative NEESes"
         return NEESes

@@ -41,8 +41,8 @@ for i in range(1,K+1):
     rot = utils.rotmat2d(poseGT[i][2])
     delta_pos = poseGT[i][:2] - (poseGT[i-1][:2] + rot @ odometry[i-1][:2])
     errPos += la.norm(delta_pos)
-    errX += abs(delta_pos[0])
-    errY += abs(delta_pos[1])
+    errX += delta_pos[0]**2
+    errY += delta_pos[1]**2
     errPsi += (poseGT[i][2] - (poseGT[i-1][2] + odometry[i-1][2]))**2
 
 xRMSE = np.sqrt(np.mean(errX)/1000)

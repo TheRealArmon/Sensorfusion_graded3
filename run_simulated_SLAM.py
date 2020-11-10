@@ -224,7 +224,7 @@ for l, lmk_l in enumerate(lmk_est_final):
 ax2.plot(*poseGT.T[:2], c="r", label="gt")
 ax2.plot(*pose_est.T[:2], c="g", label="est")
 ax2.plot(*ellipse(pose_est[-1, :2], P_hat[N - 1][:2, :2], 5, 200).T, c="g")
-ax2.set(title="results", xlim=(mins[0], maxs[0]), ylim=(mins[1], maxs[1]))
+ax2.set(title="Trajectory and Mapping", xlim=(mins[0], maxs[0]), ylim=(mins[1], maxs[1]))
 ax2.axis("equal")
 ax2.grid()
 

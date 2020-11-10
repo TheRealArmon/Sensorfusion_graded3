@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 from scipy.stats import chi2
 import utils
+from estimate_noise import estimate_Q
 
 try:
     from tqdm import tqdm
@@ -95,19 +96,28 @@ poseGT = simSLAM_ws["poseGT"].T
 K = len(z)
 M = len(landmarks)
 # print(len(poseGT))
-#K = 100 # For å ikke kjøre hele datasettet, siden det tar evig lang tid rip
+#K = 10 # For å ikke kjøre hele datasettet, siden det tar evig lang tid rip
 
 # %% Initialize
-Q = np.diag([0.0798, 0.077, 0.001]) # TODO #[0.2425, 0.2403, 0.0005]
-R = np.diag([1e-3, 1e-2]) # TODO # [5e-2, 5e-2]
+xRMSE, yRMSE, psiRMSE = estimate_Q(simSLAM_ws)
+Q = np.diag([xRMSE, yRMSE, 0.00021]) # xRMSE = 0.0798, yRMSE = 0.077
+R = np.diag([1.1e-3, 1.7e-2]) # TODO 
 
 doAsso = True
 
 JCBBalphas = np.array(
-    [1e-3, 1e-3]# TODO, # [5e-2, 5e-1]
+    [1.1e-3, 1e-5]# TODO, # [5e-2, 5e-1]
 )  # first is for joint compatibility, second is individual
 # these can have a large effect on runtime either through the number of landmarks created
 # or by the size of the association search space.
+
+# Q = np.diag([0.0798, 0.077, 0.00172]) # TODO 
+# R = np.diag([1.1e-3, 1e-2]) # TODO 
+
+# doAsso = True
+
+# JCBBalphas = np.array(
+#     [1.1e-3, 1e-2]
 
 slam = EKFSLAM(Q, R, do_asso=doAsso, alphas=JCBBalphas)
 
@@ -220,33 +230,32 @@ ax2.grid()
 
 # %% Consistency
 
-# NIS
-insideCI = (CInorm[:N,0] <= NISnorm[:N]) * (NISnorm[:N] <= CInorm[:N,1])
-
-fig3, ax3 = plt.subplots(num=3, clear=True)
-ax3.plot(CInorm[:N,0], '--')
-ax3.plot(CInorm[:N,1], '--')
-ax3.plot(NISnorm[:N], lw=0.5)
-
-ax3.set_title(f'NIS, {insideCI.mean()*100}% inside 95% CI')
-
 # NEES
 
-fig4, ax4 = plt.subplots(nrows=3, ncols=1, figsize=(7, 5), num=4, clear=True, sharex=True)
+fig4, ax4 = plt.subplots(nrows=4, ncols=1, figsize=(7, 5), num=4, clear=True, sharex=True)
 tags = ['all', 'pos', 'heading']
 dfs = [3, 2, 1]
 
 for ax, tag, NEES, df in zip(ax4, tags, NEESes.T, dfs):
     CI_NEES = chi2.interval(1-alpha, df)
-    ax.plot(np.full(N, CI_NEES[0]), '--')
-    ax.plot(np.full(N, CI_NEES[1]), '--')
-    ax.plot(NEES[:N], lw=0.5)
+    ax.plot(np.full(N-1, CI_NEES[0]), 'r--')
+    ax.plot(np.full(N-1, CI_NEES[1]), 'r--')
+    ax.plot(NEES[:N-1], lw=0.5)
     insideCI = (CI_NEES[0] <= NEES) * (NEES <= CI_NEES[1])
     ax.set_title(f'NEES {tag}: {insideCI.mean()*100}% inside 95% CI')
     CI_ANEES = np.array(chi2.interval(alpha, df*N)) / N
     print(f"CI ANEES {tag}: {CI_ANEES}")
     print(f"ANEES {tag}: {NEES.mean()}")
 
+# NIS
+insideCI = (CInorm[:N,0] <= NISnorm[:N]) * (NISnorm[:N] <= CInorm[:N,1])
+
+#fig3, ax3 = plt.subplots(num=3, clear=True)
+ax4[3].plot(CInorm[:N-1,0], 'r--')
+ax4[3].plot(CInorm[:N-1,1], 'r--')
+ax4[3].plot(NISnorm[:N-1], lw=0.5)
+
+ax4[3].set_title(f'NIS, {insideCI.mean()*100}% inside 95% CI')
 
 fig4.tight_layout()
 

@@ -106,14 +106,14 @@ b = 0.5  # laser distance to the left of center
 
 car = Car(L, H, a, b)
 
-sigmas = # TODO
+sigmas = np.array([0.0798, 0.077, 0.001]) # TODO
 CorrCoeff = np.array([[1, 0, 0], [0, 1, 0.9], [0, 0.9, 1]])
 Q = np.diag(sigmas) @ CorrCoeff @ np.diag(sigmas)
 
-R = # TODO
+R = np.diag([1e-3, 1e-2]) # TODO
 
 JCBBalphas = np.array(
-    # TODO
+    [1e-3, 1e-3] # TODO
 )
 sensorOffset = np.array([car.a + car.L, car.b])
 doAsso = True
@@ -140,7 +140,7 @@ mk = mk_first
 t = timeOdo[0]
 
 # %%  run
-N = 1000#K
+N = K//10
 
 doPlot = False
 
@@ -176,10 +176,10 @@ for k in tqdm(range(N)):
 
         t = timeLsr[mk]  # ? reset time to this laser time for next post predict
         odo = odometry(speed[k + 1], steering[k + 1], dt, car)
-        eta, P = # TODO predict
+        # eta, P = slam.predict(eta, P, odo) # TODO predict
 
         z = detectTrees(LASER[mk])
-        eta, P, NIS[mk], a[mk] = # TODO update
+        eta, P, NIS[mk], a[mk] = slam.update(eta, P, z) # TODO update
 
         num_asso = np.count_nonzero(a[mk] > -1)
 

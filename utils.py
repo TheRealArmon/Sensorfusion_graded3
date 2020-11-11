@@ -7,4 +7,3 @@ def rotmat2d(angle):
     return np.array([[np.cos(angle), -np.sin(angle)],
                      [np.sin(angle),  np.cos(angle)]])
 
-#print(np.array([1,2]) - np.array([1,1]))

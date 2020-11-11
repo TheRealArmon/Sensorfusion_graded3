@@ -106,14 +106,14 @@ b = 0.5  # laser distance to the left of center
 
 car = Car(L, H, a, b)
 
-sigmas = np.array([0.0798, 0.077, 0.001]) # TODO
+sigmas = np.array([0.0798, 0.077, 0.00021]) # TODO
 CorrCoeff = np.array([[1, 0, 0], [0, 1, 0.9], [0, 0.9, 1]])
 Q = np.diag(sigmas) @ CorrCoeff @ np.diag(sigmas)
 
-R = np.diag([1e-3, 1e-2]) # TODO
+R = np.diag([9e-2, 2e-2]) # TODO
 
 JCBBalphas = np.array(
-    [1e-3, 1e-3] # TODO
+    [2e-2, 0.8e-4] # TODO #[2e-2, 2e-4]
 )
 sensorOffset = np.array([car.a + car.L, car.b])
 doAsso = True
@@ -140,7 +140,7 @@ mk = mk_first
 t = timeOdo[0]
 
 # %%  run
-N = K//10
+N = K//4
 
 doPlot = False
 
@@ -161,7 +161,7 @@ if do_raw_prediction:  # TODO: further processing such as plotting
 
     for k in range(min(N, K - 1)):
         odos[k + 1] = odometry(speed[k + 1], steering[k + 1], 0.025, car)
-        odox[k + 1], _ = slam.predict(odox[k], P, odos[k + 1])
+        odox[k + 1], _ = slam.predict(odox[k], P.copy(), odos[k + 1])
 
 for k in tqdm(range(N)):
     if mk < mK - 1 and timeLsr[mk] <= timeOdo[k + 1]:
@@ -176,7 +176,7 @@ for k in tqdm(range(N)):
 
         t = timeLsr[mk]  # ? reset time to this laser time for next post predict
         odo = odometry(speed[k + 1], steering[k + 1], dt, car)
-        # eta, P = slam.predict(eta, P, odo) # TODO predict
+        eta, P = slam.predict(eta, P, odo) # TODO predict
 
         z = detectTrees(LASER[mk])
         eta, P, NIS[mk], a[mk] = slam.update(eta, P, z) # TODO update
@@ -217,6 +217,7 @@ for k in tqdm(range(N)):
             plt.pause(0.00001)
 
         mk += 1
+        continue # Avoid predicting twice for one step
 
     if k < K - 1:
         dt = timeOdo[k + 1] - t
@@ -230,8 +231,8 @@ for k in tqdm(range(N)):
 insideCI = (CInorm[:mk, 0] <= NISnorm[:mk]) * (NISnorm[:mk] <= CInorm[:mk, 1])
 
 fig3, ax3 = plt.subplots(num=3, clear=True)
-ax3.plot(CInorm[:mk, 0], "--")
-ax3.plot(CInorm[:mk, 1], "--")
+ax3.plot(CInorm[:mk, 0], "r--")
+ax3.plot(CInorm[:mk, 1], "r--")
 ax3.plot(NISnorm[:mk], lw=0.5)
 
 ax3.set_title(f"NIS, {insideCI.mean()*100:.2f}% inside CI")
@@ -259,6 +260,9 @@ ax6.plot(*xupd[mk_first:mk, :2].T)
 ax6.set(
     title=f"Steps {k}, laser scans {mk-1}, landmarks {len(eta[3:])//2},\nmeasurements {z.shape[0]}, num new = {np.sum(a[mk] == -1)}"
 )
+
+# plt.close(fig5)
+# plt.close(fig6)
 plt.show()
 
 # %%

@@ -86,6 +86,8 @@ simSLAM_ws = loadmat("simulatedSLAM")
 #
 # z_k = z[k][0] # z_k is a (2, m_k) matrix with columns equal to the measurements of time step k
 #
+# xRMSE, yRMSE, psiRMSE = estimate_Q(simSLAM_ws)
+# Q = np.diag([xRMSE, yRMSE, 0.00021])
 ##
 z = [zk.T for zk in simSLAM_ws["z"].ravel()]
 
@@ -97,14 +99,14 @@ K = len(z)
 M = len(landmarks)
 
 # %% Initialize
-xRMSE, yRMSE, psiRMSE = estimate_Q(simSLAM_ws)
-Q = np.diag([xRMSE, yRMSE, 0.00021]) # xRMSE = 0.0798, yRMSE = 0.077
+
+Q = np.diag([0.0798, 0.077, 0.00021])
 R = np.diag([1.1e-3, 1.7e-2]) # TODO 
 
 doAsso = True
 
 JCBBalphas = np.array(
-    [1.1e-3, 1e-5]# TODO, # [5e-2, 5e-1]
+    [1.1e-3, 1e-5]# TODO,
 )  # first is for joint compatibility, second is individual
 # these can have a large effect on runtime either through the number of landmarks created
 # or by the size of the association search space.

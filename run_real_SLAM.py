@@ -113,7 +113,7 @@ Q = np.diag(sigmas) @ CorrCoeff @ np.diag(sigmas)
 R = np.diag([9e-2, 2e-2]) # TODO
 
 JCBBalphas = np.array(
-    [2e-2, 0.8e-4] # TODO #[2e-2, 2e-4]
+    [2e-2, 2e-4] # TODO #[2e-2, 2e-4]
 )
 sensorOffset = np.array([car.a + car.L, car.b])
 doAsso = True
@@ -130,6 +130,7 @@ NIS = np.zeros(mK)
 NISnorm = np.zeros(mK)
 CI = np.zeros((mK, 2))
 CInorm = np.zeros((mK, 2))
+total_num_asso = 0
 
 # Initialize state
 eta = np.array([Lo_m[0], La_m[1], 36 * np.pi / 180]) # you might want to tweak these for a good reference
@@ -141,6 +142,8 @@ t = timeOdo[0]
 
 # %%  run
 N = K//4
+
+NISes = np.full(N, np.nan)
 
 doPlot = False
 
@@ -182,12 +185,15 @@ for k in tqdm(range(N)):
         eta, P, NIS[mk], a[mk] = slam.update(eta, P, z) # TODO update
 
         num_asso = np.count_nonzero(a[mk] > -1)
+        
 
         if num_asso > 0:
             NISnorm[mk] = NIS[mk] / (2 * num_asso)
             CInorm[mk] = np.array(chi2.interval(confidence_prob, 2 * num_asso)) / (
                 2 * num_asso
             )
+            total_num_asso += num_asso
+            NISes[k] = NIS[mk]
         else:
             NISnorm[mk] = 1
             CInorm[mk].fill(1)
@@ -236,6 +242,16 @@ ax3.plot(CInorm[:mk, 1], "r--")
 ax3.plot(NISnorm[:mk], lw=0.5)
 
 ax3.set_title(f"NIS, {insideCI.mean()*100:.2f}% inside CI")
+
+# ANIS
+valid_NIS = ~np.isnan(NISes)
+NISes = NISes[valid_NIS]
+# Interval and ANIS
+CI_ANIS = np.array(chi2.interval(1 - alpha, total_num_asso * 2)) / NISes.size
+ANIS = NISes.mean()
+
+print(f"CI ANIS: {CI_ANIS}")
+print(f"ANIS: {ANIS}")
 
 # %% slam
 

@@ -95,8 +95,6 @@ poseGT = simSLAM_ws["poseGT"].T
 
 K = len(z)
 M = len(landmarks)
-# print(len(poseGT))
-#K = 10 # For å ikke kjøre hele datasettet, siden det tar evig lang tid rip
 
 # %% Initialize
 xRMSE, yRMSE, psiRMSE = estimate_Q(simSLAM_ws)
@@ -110,14 +108,6 @@ JCBBalphas = np.array(
 )  # first is for joint compatibility, second is individual
 # these can have a large effect on runtime either through the number of landmarks created
 # or by the size of the association search space.
-
-# Q = np.diag([0.0798, 0.077, 0.00172]) # TODO 
-# R = np.diag([1.1e-3, 1e-2]) # TODO 
-
-# doAsso = True
-
-# JCBBalphas = np.array(
-#     [1.1e-3, 1e-2]
 
 slam = EKFSLAM(Q, R, do_asso=doAsso, alphas=JCBBalphas)
 
@@ -172,7 +162,7 @@ for k, z_k in tqdm(enumerate(z[:N])):
     else:
         NISnorm[k] = 1
         CInorm[k].fill(1)
-    # pose[k+1]?
+
     NEESes[k] = slam.NEESes(eta_hat[k][:3], P_hat[k][:3,:3], poseGT[k], k) # TODO, use provided function slam.NEESes
 
     if doAssoPlot and k > 0:
@@ -192,8 +182,7 @@ for k, z_k in tqdm(enumerate(z[:N])):
 
 
 print("sim complete")
-#print(eta_hat)
-#print(eta_hat.shape)
+
 pose_est = np.array([x[:3] for x in eta_hat[:N]])
 lmk_est = [eta_hat_k[3:].reshape(-1, 2) for eta_hat_k in eta_hat]
 lmk_est_final = lmk_est[N - 1]

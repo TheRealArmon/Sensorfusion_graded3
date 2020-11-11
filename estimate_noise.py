@@ -11,16 +11,11 @@ import scipy.linalg as la
 import utils
 
 def estimate_Q(simSLAM_ws):
-# Load data
-#simSLAM_ws = loadmat("simulatedSLAM")
 
     z = [zk.T for zk in simSLAM_ws["z"].ravel()]
-
-    landmarks = simSLAM_ws["landmarks"].T
+    K = len(z)
     odometry = simSLAM_ws["odometry"].T
     poseGT = simSLAM_ws["poseGT"].T
-
-    K = len(z)
 
     errX = 0
     errY = 0

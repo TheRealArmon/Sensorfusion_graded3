@@ -52,7 +52,7 @@ class EKFSLAM:
         v_k = u[1]
         phi_k = u[2]
 
-        xpred = np.array([x_k + u_k*np.cos(psi_k) - v_k*np.sin(psi_k), #Hvorfor minus sin? pga Heading?
+        xpred = np.array([x_k + u_k*np.cos(psi_k) - v_k*np.sin(psi_k),
                  y_k + u_k*np.sin(psi_k) + v_k*np.cos(psi_k),
                  utils.wrapToPi(psi_k + phi_k)]) # TODO, eq (11.7). Should wrap heading angle between (-pi, pi), see utils.wrapToPi
 
@@ -138,7 +138,7 @@ class EKFSLAM:
         ), "EKFSLAM.predict: input eta and P shape do not match"
         etapred = np.empty_like(eta)
 
-        # Ikke inplace for etapred?
+        
         x = eta[:3]
         u = z_odo
         etapred[:3] = self.f(x, u) # TODO robot state prediction
@@ -152,8 +152,6 @@ class EKFSLAM:
         # cov matrix layout:
         # [[P_xx, P_xm],
         # [P_mx, P_mm]]
-
-        # TODO np.copy()? Inplace er fucked?
         
         P[:3, :3] = Fx @ P[:3, :3] @ Fx.T + Fu @ self.Q @ Fu.T # TODO robot cov prediction
         P[:3, 3:] = Fx @ P[:3, 3:] # TODO robot-map covariance prediction
@@ -186,11 +184,10 @@ class EKFSLAM:
         ## reshape map (2, #landmarks), m[:, j] is the jth landmark
         m = eta[3:].reshape((-1, 2)).T
 
-        Rot = rotmat2d(-x[2]) # Fra body til world, eller omvendt siden -psi?
+        Rot = rotmat2d(-x[2])
 
         # None as index ads an axis with size 1 at that position.
         # Numpy broadcasts size 1 dimensions to any size when needed
-        # TODO Må kanskje transpose Rot her, og ikke på neste
         
         #Whack med to stk .T, men hey, it works
         delta_m = (m.T - x[:2] - Rot.T @ self.sensor_offset).T # TODO, relative position of landmark to sensor on robot in world frame
@@ -241,7 +238,7 @@ class EKFSLAM:
 
         zpred = self.h(eta) # TODO (2, #measurements), predicted measurements, like
         # [ranges;
-        #  bearings] # No its not like this, ref self.h
+        #  bearings] # With our implementation its not like this, ref self.h
         
         zr = zpred[0::2] # TODO, ranges
 
@@ -256,8 +253,6 @@ class EKFSLAM:
         H = np.zeros((2 * numM, 3 + 2 * numM)) # TODO, see eq (11.15), (11.16), (11.17)
         Hx = H[:, :3]  # slice view, setting elements of Hx will set H as well
         Hm = H[:, 3:]  # slice view, setting elements of Hm will set H as well
-
-        # TODO Hvordan bruke jac_z_cb? Og hva med det som står i oppgaven?
 
         # proposed way is to go through landmarks one by one
         jac_z_cb = -np.eye(2, 3)  # preallocate and update this for some speed gain if looping
@@ -427,7 +422,6 @@ class EKFSLAM:
             # or be smart with indexing and broadcasting (3d indexing into 2d mat) realizing you are adding the same R on all diagonals
             R_shit = np.diag((np.array([[self.R[0,0], self.R[1,1]] for r in range(numLmk)]).reshape(2*numLmk)))
             S = H @ P @ H.T + R_shit
-            #S = H @ P @ H.T + np.kron(np.eye(numLmk), self.R) # TODO 
 
             assert (
                 S.shape == zpred.shape * 2
@@ -439,7 +433,7 @@ class EKFSLAM:
             
             # No association could be made, so skip update
             if za.shape[0] == 0:
-                etaupd = eta # TODO # Usikker på disse to. Bruke predict?
+                etaupd = eta # TODO
                 Pupd = P # TODO
                 NIS = 1 # TODO: beware this one when analysing consistency.
 
@@ -451,7 +445,7 @@ class EKFSLAM:
                 # Kalman mean update
                 # S_cho_factors = la.cho_factor(Sa) # Optional, used in places for S^-1, see scipy.linalg.cho_factor and scipy.linalg.cho_solve
                 
-                W = P @ Ha.T @ la.inv(Sa) #Sa? # TODO, Kalman gain, can use S_cho_factors
+                W = P @ Ha.T @ la.inv(Sa) # TODO, Kalman gain, can use S_cho_factors
                 etaupd = eta + W @ v # TODO, Kalman update
 
                 # Kalman cov update: use Joseph form for stability
@@ -460,7 +454,7 @@ class EKFSLAM:
                 Pupd = jo @ P # TODO, Kalman update. This is the main workload on VP after speedups
 
                 # calculate NIS, can use S_cho_factors
-                NIS = v.T @ la.solve(Sa, v) #Sa? # TODO
+                NIS = v.T @ la.solve(Sa, v) # TODO
 
                 # When tested, remove for speed
                 assert np.allclose(Pupd, Pupd.T), "EKFSLAM.update: Pupd not symmetric"
@@ -532,14 +526,6 @@ class EKFSLAM:
 
         NEESes = np.array([NEES_all, NEES_pos, NEES_heading])
         NEESes[np.isnan(NEESes)] = 1.0  # We may divide by zero, # TODO: beware
-
-        # if k >= 998:
-        #     print()
-        #     print("___________")
-        #     print(x - x_gt)
-        #     print(np.round(la.inv(P), 2))
-        #     print(NEESes)
-        #     print("____________")
 
         assert np.all(NEESes >= 0), "ESKF.NEES: one or more negative NEESes"
         return NEESes
